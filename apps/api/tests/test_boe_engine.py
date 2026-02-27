@@ -63,11 +63,13 @@ def test_dscr_warn_counts_toward_gate_pass_count(boe_base_inputs):
     output_warn, tests_warn, decision_warn = calculate_boe(BOEInput(y1_noi=warn_noi, **base))
     _, tests_fail, decision_fail = calculate_boe(BOEInput(y1_noi=fail_noi, **base))
 
-    assert _get_test_result(tests_warn, "dscr") == BOETestResult.WARN
+    dscr = next(t for t in tests_warn if t.key == "dscr")
+    assert dscr.result == BOETestResult.WARN
     assert _get_test_result(tests_fail, "dscr") == BOETestResult.FAIL
 
     # Core requirement: WARN counts toward the pass tally more than FAIL does.
     assert decision_warn.pass_count >= decision_fail.pass_count
+    assert decision_warn.pass_count == len(decision_warn.pass_tests) + len(decision_warn.warn_tests)
     assert decision_warn.total_tests == 7
     assert decision_fail.total_tests == 7
 
@@ -141,14 +143,23 @@ def test_gate_decision_has_stable_advance_and_kill_cases():
         seller_noi_from_om=500_000,
         gross_income=1_000_000,
         operating_expenses=350_000,
-        y1_noi=500_000,
+        y1_noi=416_000,
         y1_exit_cap_rate=0.05,
     )
 
-    _, _, advance_decision = calculate_boe(advance_case)
+    advance_output, _, advance_decision = calculate_boe(advance_case)
     _, _, kill_decision = calculate_boe(kill_case)
 
     assert advance_decision.total_tests == 7
     assert advance_decision.advance is True
     assert kill_decision.total_tests == 7
     assert kill_decision.advance is False
+    assert "yield_on_cost" in kill_decision.failed_hard_tests
+    assert set(advance_output.max_bid_by_constraint.__dict__.keys()) == {
+        "max_price_at_yoc",
+        "max_price_at_capex_multiple",
+        "max_price_at_coc_threshold",
+    }
+    assert advance_output.max_bid_by_constraint.max_price_at_yoc == advance_output.max_price_at_yoc
+    assert advance_output.max_bid_by_constraint.max_price_at_capex_multiple == advance_output.max_price_at_capex_multiple
+    assert advance_output.max_bid_by_constraint.max_price_at_coc_threshold == advance_output.max_price_at_coc_threshold
