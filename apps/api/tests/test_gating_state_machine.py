@@ -55,25 +55,33 @@ class FakeScalarDB:
         return self.responses.pop(0)
 
 
-def test_require_deal_advance_blocks_no_run_and_kill():
-    user = SimpleNamespace(id=uuid4())
-
-    for state in (DealGateState.NO_RUN, DealGateState.KILL):
-        db = FakeScalarDB([
-            SimpleNamespace(id=uuid4(), workspace_id=uuid4(), current_gate_state=state),
-            SimpleNamespace(id=uuid4()),
-        ])
-        with pytest.raises(HTTPException) as exc:
-            require_deal_advance(str(uuid4()), db=db, user=user)
-        assert exc.value.status_code == 403
+@pytest.fixture
+def fake_user():
+    return SimpleNamespace(id=uuid4())
 
 
-def test_require_deal_advance_allows_advance():
-    user = SimpleNamespace(id=uuid4())
+@pytest.fixture
+def fake_workspace():
+    return SimpleNamespace(id=uuid4())
+
+
+@pytest.mark.parametrize("state", [DealGateState.NO_RUN, DealGateState.KILL])
+def test_require_deal_advance_blocks_no_run_and_kill(fake_user, fake_workspace, state):
+    db = FakeScalarDB([
+        SimpleNamespace(id=uuid4(), workspace_id=uuid4(), current_gate_state=state),
+        fake_workspace,
+    ])
+    with pytest.raises(HTTPException) as exc:
+        require_deal_advance(str(uuid4()), db=db, user=fake_user)
+    assert exc.value.status_code == 403
+    assert "Full underwriting is locked" in exc.value.detail
+
+
+def test_require_deal_advance_allows_advance(fake_user, fake_workspace):
     deal = SimpleNamespace(id=uuid4(), workspace_id=uuid4(), current_gate_state=DealGateState.ADVANCE)
-    db = FakeScalarDB([deal, SimpleNamespace(id=uuid4())])
+    db = FakeScalarDB([deal, fake_workspace])
 
-    result = require_deal_advance(str(uuid4()), db=db, user=user)
+    result = require_deal_advance(str(uuid4()), db=db, user=fake_user)
     assert result == deal
 
 
