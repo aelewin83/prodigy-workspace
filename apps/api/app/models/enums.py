@@ -7,6 +7,7 @@ class MemberRole(str, Enum):
 
 
 class TestResult(str, Enum):
+    __test__ = False
     PASS = "PASS"
     FAIL = "FAIL"
     WARN = "WARN"
@@ -14,6 +15,7 @@ class TestResult(str, Enum):
 
 
 class TestClass(str, Enum):
+    __test__ = False
     HARD = "hard"
     SOFT = "soft"
 
@@ -58,6 +60,7 @@ class DealGateState(str, Enum):
 
 
 class DealStatus(str, Enum):
-    KILL = "KILL"
-    REVIEW = "REVIEW"
+    BLOCKED = "BLOCKED"
+    NEEDS_WORK = "NEEDS_WORK"
     ADVANCE = "ADVANCE"
+    APPROVED = "APPROVED"

@@ -46,3 +46,11 @@ def test_deal_gate_status_migration_exists():
     assert "dealstatus" in migration
     assert "gate_status" in migration
     assert "gate_updated_at" in migration
+
+
+def test_gate_overrides_and_events_migration_exists():
+    migration = (MIGRATIONS_DIR / "0006_gate_overrides_and_events.py").read_text(encoding="utf-8")
+    assert "APPROVED" in migration
+    assert "gate_status_computed" in migration
+    assert "gate_override_status" in migration
+    assert "deal_gate_events" in migration

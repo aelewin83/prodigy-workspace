@@ -60,10 +60,13 @@ prodigy_api.egg-info/requires.txt
 prodigy_api.egg-info/top_level.txt
 tests/test_audit_logging.py
 tests/test_boe_engine.py
+tests/test_boe_gate_status_persistence.py
 tests/test_boe_parity.py
 tests/test_boe_stub.py
 tests/test_comps_service.py
 tests/test_db_schema_contract.py
 tests/test_deals_api_unit.py
+tests/test_gate_override.py
 tests/test_gating_state_machine.py
+tests/test_ic_score.py
 tests/test_underwriting_router_contract.py

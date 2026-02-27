@@ -2,7 +2,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.api import deals
-from app.schemas.deal import DealCreate, DealUpdate
+from app.models.enums import DealStatus
+from app.schemas.deal import DealCreate, DealGateOverrideRequest, DealUpdate
 
 
 class FakeDB:
@@ -73,4 +74,49 @@ def test_delete_deal_deletes_entity(monkeypatch):
     deals.delete_deal(deal_id=str(uuid4()), db=fake_db, user=SimpleNamespace(id=uuid4()))
 
     assert fake_db.deleted == deal_obj
+    assert fake_db.committed is True
+
+
+def test_override_gate_requires_reason(monkeypatch):
+    fake_db = FakeDB()
+    deal_obj = SimpleNamespace(id=uuid4())
+    monkeypatch.setattr(deals, "_get_deal_with_access", lambda *_args, **_kwargs: deal_obj)
+
+    payload = DealGateOverrideRequest(override_status="APPROVED", reason=None)
+    user = SimpleNamespace(id=uuid4())
+
+    try:
+        deals.override_deal_gate_status(str(uuid4()), payload, fake_db, user)
+        assert False, "Expected HTTPException"
+    except Exception as exc:  # FastAPI HTTPException
+        assert getattr(exc, "status_code", None) == 422
+
+
+def test_override_gate_set_and_clear(monkeypatch):
+    fake_db = FakeDB()
+    deal_obj = SimpleNamespace(id=uuid4())
+    calls = []
+    monkeypatch.setattr(deals, "_get_deal_with_access", lambda *_args, **_kwargs: deal_obj)
+
+    def _fake_set_gate_override(_db, _deal, override_status, reason, override_by):
+        calls.append((override_status, reason, override_by))
+
+    monkeypatch.setattr(deals, "set_gate_override", _fake_set_gate_override)
+
+    user = SimpleNamespace(id=uuid4())
+    deals.override_deal_gate_status(
+        str(uuid4()),
+        DealGateOverrideRequest(override_status="BLOCKED", reason="Manual block"),
+        fake_db,
+        user,
+    )
+    deals.override_deal_gate_status(
+        str(uuid4()),
+        DealGateOverrideRequest(override_status="CLEAR", reason=None),
+        fake_db,
+        user,
+    )
+
+    assert calls[0][0] == DealStatus.BLOCKED
+    assert calls[1][0] is None
     assert fake_db.committed is True

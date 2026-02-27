@@ -21,6 +21,8 @@ class BOEDecisionSummaryOut(BaseModel):
     warn_tests: list[str]
     pass_tests: list[str]
     na_tests: list[str]
+    ic_score: int
+    ic_score_breakdown: dict
 
 
 class BOETestResultOut(BaseModel):
