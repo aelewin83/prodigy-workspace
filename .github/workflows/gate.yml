@@ -60,3 +60,12 @@ jobs:
         env:
           BOE_WORKBOOK_PATH: ${{ github.workspace }}/fixtures/boe/BOE_MF_Template_NYC.xlsx
         run: make gate
+
+      - name: Upload API coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: |
+            apps/api/coverage.xml
+            apps/api/htmlcov

@@ -13,7 +13,7 @@ install-web:
 	cd apps/web && if [ ! -d node_modules ]; then npm ci; fi
 
 test-api:
-	cd apps/api && pytest -q
+	cd apps/api && pytest -q --cov=app --cov-config=../../.coveragerc --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov
 
 BOE_WORKBOOK_PATH ?= $(CURDIR)/fixtures/boe/BOE_MF_Template_NYC.xlsx
 

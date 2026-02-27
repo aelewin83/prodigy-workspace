@@ -1,0 +1,14 @@
+[run]
+branch = True
+source =
+    app
+omit =
+    */tests/*
+    */alembic/*
+    */scripts/*
+    */__init__.py
+    */__pycache__/*
+
+[report]
+show_missing = True
+skip_covered = False
