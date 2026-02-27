@@ -4,6 +4,7 @@ from enum import Enum
 class MemberRole(str, Enum):
     OWNER = "OWNER"
     MEMBER = "MEMBER"
+    VIEWER = "VIEWER"
 
 
 class WorkspaceEdition(str, Enum):

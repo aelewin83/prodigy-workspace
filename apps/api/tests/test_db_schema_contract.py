@@ -70,3 +70,16 @@ def test_workspace_edition_migration_exists():
     assert "edition" in migration
     assert "edition_updated_at" in migration
     assert "edition_updated_by_user_id" in migration
+
+
+def test_deal_comments_migration_exists():
+    migration = (MIGRATIONS_DIR / "0009_deal_comments.py").read_text(encoding="utf-8")
+    assert "deal_comments" in migration
+    assert "body" in migration
+    assert "created_by" in migration
+
+
+def test_workspace_member_viewer_role_migration_exists():
+    migration = (MIGRATIONS_DIR / "0010_workspace_member_viewer_role.py").read_text(encoding="utf-8")
+    assert "memberrole" in migration
+    assert "VIEWER" in migration

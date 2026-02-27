@@ -8,6 +8,8 @@ app/api/comps.py
 app/api/deals.py
 app/api/deps.py
 app/api/full_underwriting.py
+app/api/portfolio.py
+app/api/risk.py
 app/api/router.py
 app/api/workspaces.py
 app/boe/__init__.py
@@ -31,9 +33,14 @@ app/schemas/boe.py
 app/schemas/common.py
 app/schemas/comps.py
 app/schemas/deal.py
+app/schemas/deal_workspace.py
+app/schemas/gate.py
 app/schemas/workspace.py
+app/services/analytics.py
 app/services/boe.py
+app/services/gate_summary.py
 app/services/gating.py
+app/services/workspace_capabilities.py
 app/services/comps/__init__.py
 app/services/comps/config.py
 app/services/comps/connector_base.py
@@ -58,6 +65,8 @@ prodigy_api.egg-info/SOURCES.txt
 prodigy_api.egg-info/dependency_links.txt
 prodigy_api.egg-info/requires.txt
 prodigy_api.egg-info/top_level.txt
+tests/test_activity_feed_contract.py
+tests/test_analytics_payloads.py
 tests/test_audit_logging.py
 tests/test_boe_engine.py
 tests/test_boe_gate_status_persistence.py
@@ -65,8 +74,13 @@ tests/test_boe_parity.py
 tests/test_boe_stub.py
 tests/test_comps_service.py
 tests/test_db_schema_contract.py
+tests/test_deal_workspace_summary_contract.py
 tests/test_deals_api_unit.py
 tests/test_gate_override.py
+tests/test_gate_summary_contract.py
 tests/test_gating_state_machine.py
+tests/test_ic_packet.py
 tests/test_ic_score.py
+tests/test_rbac_deal_controls.py
 tests/test_underwriting_router_contract.py
+tests/test_workspace_edition_switch.py

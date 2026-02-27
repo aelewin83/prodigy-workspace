@@ -44,7 +44,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="font-mono">${deal.latestRun.maxBid.toLocaleString()}</div>
                 <div className="text-right">
-                  <Link href={`/deals/${deal.id}?tab=boe`} className="text-sm text-accent">
+                  <Link href={`/workspaces/local-workspace/deals/${deal.id}`} className="text-sm text-accent">
                     Review
                   </Link>
                 </div>

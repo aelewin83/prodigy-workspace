@@ -101,8 +101,11 @@ export default function DealsPage() {
                       </td>
                       <td className="py-4 text-text-muted">{deal.updatedDate}</td>
                       <td className="py-4 text-right">
-                        <Link href={`/deals/${deal.id}?tab=boe`} className="text-accent">
+                        <Link href={`/deals/${deal.id}?tab=boe`} className="mr-3 text-accent">
                           Open
+                        </Link>
+                        <Link href={`/workspaces/local-workspace/deals/${deal.id}`} className="text-text-muted hover:text-text-heading">
+                          Workspace
                         </Link>
                       </td>
                     </tr>

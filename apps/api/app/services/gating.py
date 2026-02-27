@@ -163,3 +163,14 @@ def log_boe_run_created(db: Session, run: BOERun, user_id) -> None:
             payload={"deal_id": str(run.deal_id), "version": run.version},
         )
     )
+    db.add(
+        DealGateEvent(
+            deal_id=run.deal_id,
+            event_type="BOE_RUN_CREATED",
+            from_status=None,
+            to_status="ADVANCE" if run.advance else "KILL",
+            source="BOE_RUN",
+            reason=None,
+            metadata_json={"run_id": str(run.id), "version": run.version, "actor_user_id": str(user_id)},
+        )
+    )

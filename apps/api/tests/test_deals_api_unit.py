@@ -2,8 +2,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.api import deals
-from app.models.enums import DealStatus
-from app.schemas.deal import DealCreate, DealGateOverrideRequest, DealUpdate
+from app.models.enums import DealStatus, MemberRole
+from app.schemas.deal import DealCreate, DealUpdate
+from app.schemas.deal_workspace import DealOverrideActionRequest
 
 
 class FakeDB:
@@ -81,8 +82,9 @@ def test_override_gate_requires_reason(monkeypatch):
     fake_db = FakeDB()
     deal_obj = SimpleNamespace(id=uuid4())
     monkeypatch.setattr(deals, "_get_deal_with_access", lambda *_args, **_kwargs: deal_obj)
+    monkeypatch.setattr(deals, "_get_deal_member", lambda *_args, **_kwargs: SimpleNamespace(role=MemberRole.OWNER))
 
-    payload = DealGateOverrideRequest(override_status="APPROVED", reason=None)
+    payload = DealOverrideActionRequest(status="ADVANCE", comment=None)
     user = SimpleNamespace(id=uuid4())
 
     try:
@@ -97,6 +99,7 @@ def test_override_gate_set_and_clear(monkeypatch):
     deal_obj = SimpleNamespace(id=uuid4())
     calls = []
     monkeypatch.setattr(deals, "_get_deal_with_access", lambda *_args, **_kwargs: deal_obj)
+    monkeypatch.setattr(deals, "_get_deal_member", lambda *_args, **_kwargs: SimpleNamespace(role=MemberRole.OWNER))
 
     def _fake_set_gate_override(_db, _deal, override_status, reason, override_by):
         calls.append((override_status, reason, override_by))
@@ -106,13 +109,13 @@ def test_override_gate_set_and_clear(monkeypatch):
     user = SimpleNamespace(id=uuid4())
     deals.override_deal_gate_status(
         str(uuid4()),
-        DealGateOverrideRequest(override_status="BLOCKED", reason="Manual block"),
+        DealOverrideActionRequest(status="KILL", comment="Manual block"),
         fake_db,
         user,
     )
     deals.override_deal_gate_status(
         str(uuid4()),
-        DealGateOverrideRequest(override_status="CLEAR", reason=None),
+        DealOverrideActionRequest(status="CLEAR", comment=None),
         fake_db,
         user,
     )
