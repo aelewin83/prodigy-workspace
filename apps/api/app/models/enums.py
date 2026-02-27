@@ -55,3 +55,9 @@ class DealGateState(str, Enum):
     NO_RUN = "NO_RUN"
     KILL = "KILL"
     ADVANCE = "ADVANCE"
+
+
+class DealStatus(str, Enum):
+    KILL = "KILL"
+    REVIEW = "REVIEW"
+    ADVANCE = "ADVANCE"

@@ -39,3 +39,10 @@ def test_gate_state_and_audit_fields_migration_exists():
     assert "previous_state" in migration
     assert "new_state" in migration
     assert "created_by" in migration
+
+
+def test_deal_gate_status_migration_exists():
+    migration = (MIGRATIONS_DIR / "0005_deal_gate_status.py").read_text(encoding="utf-8")
+    assert "dealstatus" in migration
+    assert "gate_status" in migration
+    assert "gate_updated_at" in migration

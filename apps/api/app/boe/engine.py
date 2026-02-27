@@ -6,15 +6,25 @@ from typing import Any
 
 
 class TestClass(str, Enum):
+    __test__ = False
     HARD = "hard"
     SOFT = "soft"
 
 
 class TestResult(str, Enum):
+    __test__ = False
     PASS = "PASS"
     FAIL = "FAIL"
     WARN = "WARN"
     NA = "N/A"
+
+
+class GateStatus(str, Enum):
+    __test__ = False
+    BLOCKED = "BLOCKED"
+    NEEDS_WORK = "NEEDS_WORK"
+    ADVANCE = "ADVANCE"
+    APPROVED = "APPROVED"
 
 
 @dataclass(frozen=True)
@@ -48,6 +58,7 @@ class BOETestOutcome:
 
 @dataclass(frozen=True)
 class BOEDecision:
+    status: GateStatus
     hard_veto_ok: bool
     pass_count: int
     total_tests: int
@@ -287,8 +298,15 @@ def _evaluate_tests(metrics: BOEOutput, interest_rate: float | None) -> tuple[li
     quorum_met = pass_count >= QUORUM_REQUIRED
 
     advance = hard_veto_ok and quorum_met
+    if not hard_veto_ok:
+        status = GateStatus.BLOCKED
+    elif advance:
+        status = GateStatus.ADVANCE
+    else:
+        status = GateStatus.NEEDS_WORK
 
     return tests, BOEDecision(
+        status=status,
         hard_veto_ok=hard_veto_ok,
         pass_count=pass_count,
         total_tests=total_tests,
