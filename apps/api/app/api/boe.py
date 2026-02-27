@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -11,22 +9,30 @@ from app.db.session import get_db
 from app.models.entities import BOERun, BOETestResult, Deal, User
 from app.models.enums import DealStatus, TestClass, TestResult
 from app.schemas.boe import BOEDecisionSummaryOut, BOERunCreate, BOERunOut
-from app.services.gating import log_boe_run_created, transition_deal_gate
+from app.services.gating import apply_computed_gate_status, log_boe_run_created, map_decision_to_deal_status, transition_deal_gate
 
 router = APIRouter(prefix="/deals/{deal_id}/boe/runs", tags=["boe"])
 
 
-def _compute_deal_gate_status(hard_veto_ok: bool, advance: bool) -> DealStatus:
-    if not hard_veto_ok:
-        return DealStatus.KILL
-    if advance:
-        return DealStatus.ADVANCE
-    return DealStatus.REVIEW
-
-
-def _persist_deal_gate_status(deal: Deal, hard_veto_ok: bool, advance: bool) -> None:
-    deal.gate_status = _compute_deal_gate_status(hard_veto_ok=hard_veto_ok, advance=advance)
-    deal.gate_updated_at = datetime.now(timezone.utc)
+def _compute_ic_score(run: BOERun) -> tuple[int, dict]:
+    hard_fail_count = sum(1 for t in run.tests if t.test_class == TestClass.HARD and t.result == TestResult.FAIL)
+    soft_fail_count = sum(1 for t in run.tests if t.test_class == TestClass.SOFT and t.result == TestResult.FAIL)
+    warn_count = sum(1 for t in run.tests if t.result == TestResult.WARN)
+    hard_penalty = hard_fail_count * 25
+    soft_penalty = soft_fail_count * 10
+    warn_penalty = warn_count * 5
+    total_penalty = hard_penalty + soft_penalty + warn_penalty
+    score = max(0, min(100, 100 - total_penalty))
+    return score, {
+        "hard_fail_count": hard_fail_count,
+        "soft_fail_count": soft_fail_count,
+        "warn_count": warn_count,
+        "hard_fail_penalty": hard_penalty,
+        "soft_fail_penalty": soft_penalty,
+        "warn_penalty": warn_penalty,
+        "base_score": 100,
+        "total_penalty": total_penalty,
+    }
 
 
 def _decision_summary_from_tests(run: BOERun) -> BOEDecisionSummaryOut:
@@ -41,6 +47,7 @@ def _decision_summary_from_tests(run: BOERun) -> BOEDecisionSummaryOut:
         status = GateStatus.ADVANCE.value
     else:
         status = GateStatus.NEEDS_WORK.value
+    ic_score, ic_breakdown = _compute_ic_score(run)
     return BOEDecisionSummaryOut(
         status=status,
         hard_veto_ok=run.hard_veto_ok,
@@ -52,6 +59,8 @@ def _decision_summary_from_tests(run: BOERun) -> BOEDecisionSummaryOut:
         warn_tests=warn_tests,
         pass_tests=pass_tests,
         na_tests=na_tests,
+        ic_score=ic_score,
+        ic_score_breakdown=ic_breakdown,
     )
 
 
@@ -122,7 +131,20 @@ def create_boe_run(
 
     log_boe_run_created(db, run, user.id)
     transition_deal_gate(db, deal, run, user.id)
-    _persist_deal_gate_status(deal, hard_veto_ok=decision.hard_veto_ok, advance=decision.advance)
+    computed_status = map_decision_to_deal_status(decision)
+    apply_computed_gate_status(
+        db,
+        deal,
+        computed_status,
+        reason="Computed from BOE run",
+        metadata_json={
+            "run_id": str(run.id),
+            "decision": decision.status.value,
+            "hard_veto_ok": decision.hard_veto_ok,
+            "pass_count": decision.pass_count,
+            "advance": decision.advance,
+        },
+    )
     db.commit()
     reloaded = db.scalar(select(BOERun).options(selectinload(BOERun.tests)).where(BOERun.id == run.id))
     return _serialize_boe_run(reloaded)

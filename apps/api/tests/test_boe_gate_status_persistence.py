@@ -29,34 +29,35 @@ class FakeDB:
 
 
 @pytest.mark.parametrize(
-    ("hard_veto_ok", "advance", "expected_status"),
+    ("decision_status", "expected_status"),
     [
-        (False, False, DealStatus.KILL),
-        (True, False, DealStatus.REVIEW),
-        (True, True, DealStatus.ADVANCE),
+        (GateStatus.BLOCKED, DealStatus.BLOCKED),
+        (GateStatus.NEEDS_WORK, DealStatus.NEEDS_WORK),
+        (GateStatus.ADVANCE, DealStatus.ADVANCE),
     ],
 )
-def test_create_boe_run_persists_deal_gate_status(monkeypatch, hard_veto_ok, advance, expected_status):
+def test_create_boe_run_persists_computed_gate_status(monkeypatch, decision_status, expected_status):
     deal = SimpleNamespace(
         id=uuid4(),
         workspace_id=uuid4(),
         current_gate_state=None,
         latest_boe_run_id=None,
-        gate_status=DealStatus.REVIEW,
+        gate_status=DealStatus.NEEDS_WORK,
+        gate_status_computed=DealStatus.NEEDS_WORK,
+        gate_override_status=None,
         gate_updated_at=None,
     )
-
     fake_run_for_response = SimpleNamespace(
         id=uuid4(),
         deal_id=deal.id,
         version=1,
         inputs={},
         outputs={},
-        decision="ADVANCE" if advance else "KILL",
+        decision="ADVANCE",
         binding_constraint="YOC",
-        hard_veto_ok=hard_veto_ok,
-        pass_count=4 if advance else 3,
-        advance=advance,
+        hard_veto_ok=True,
+        pass_count=4,
+        advance=True,
         created_by=uuid4(),
         created_at=None,
         tests=[],
@@ -69,6 +70,15 @@ def test_create_boe_run_persists_deal_gate_status(monkeypatch, hard_veto_ok, adv
     monkeypatch.setattr(boe, "serialize_output", lambda _output: {})
     monkeypatch.setattr(boe, "_serialize_boe_run", lambda _run: {"ok": True})
 
+    calls = []
+
+    def _fake_apply_computed(db_session, deal_obj, computed_status, **kwargs):
+        calls.append((db_session, deal_obj, computed_status, kwargs))
+        deal_obj.gate_status_computed = computed_status
+        deal_obj.gate_status = computed_status
+        return True
+
+    monkeypatch.setattr(boe, "apply_computed_gate_status", _fake_apply_computed)
     fake_output = BOEOutput(
         market_cap_rate=None,
         seller_noi_from_om=None,
@@ -104,20 +114,20 @@ def test_create_boe_run_persists_deal_gate_status(monkeypatch, hard_veto_ok, adv
             actual=None,
             threshold_display="N/A",
             actual_display="N/A",
-            result=TestResult.FAIL if not hard_veto_ok else TestResult.PASS,
+            result=TestResult.PASS,
         )
     ]
     fake_decision = BOEDecision(
-        status=GateStatus.BLOCKED if not hard_veto_ok else (GateStatus.ADVANCE if advance else GateStatus.NEEDS_WORK),
-        hard_veto_ok=hard_veto_ok,
-        pass_count=4 if advance else 3,
+        status=decision_status,
+        hard_veto_ok=decision_status != GateStatus.BLOCKED,
+        pass_count=4 if decision_status == GateStatus.ADVANCE else 3,
         total_tests=7,
-        failed_hard_tests=["yield_on_cost"] if not hard_veto_ok else [],
+        failed_hard_tests=[],
         failed_soft_tests=[],
         warn_tests=[],
-        pass_tests=["yield_on_cost"] if hard_veto_ok else [],
+        pass_tests=[],
         na_tests=[],
-        advance=advance,
+        advance=decision_status == GateStatus.ADVANCE,
     )
     monkeypatch.setattr(boe, "calculate_boe", lambda *_args, **_kwargs: (fake_output, fake_tests, fake_decision))
 
@@ -125,19 +135,8 @@ def test_create_boe_run_persists_deal_gate_status(monkeypatch, hard_veto_ok, adv
     user = SimpleNamespace(id=uuid4())
     _ = boe.create_boe_run(deal_id=deal.id, payload=payload, db=db, user=user)
 
+    assert calls
+    assert calls[0][2] == expected_status
     assert deal.gate_status == expected_status
-    assert deal.gate_updated_at is not None
+    assert deal.gate_status_computed == expected_status
     assert db.committed is True
-
-
-def test_persist_deal_gate_status_latest_run_wins():
-    deal = SimpleNamespace(gate_status=DealStatus.REVIEW, gate_updated_at=None)
-
-    boe._persist_deal_gate_status(deal, hard_veto_ok=False, advance=False)
-    assert deal.gate_status == DealStatus.KILL
-    first_updated = deal.gate_updated_at
-
-    boe._persist_deal_gate_status(deal, hard_veto_ok=True, advance=True)
-    assert deal.gate_status == DealStatus.ADVANCE
-    assert deal.gate_updated_at is not None
-    assert deal.gate_updated_at >= first_updated

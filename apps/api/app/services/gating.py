@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.entities import AuditLog, BOERun, Deal
-from app.models.enums import DealGateState
+from app.boe.engine import BOEDecision, GateStatus
+from app.models.entities import AuditLog, BOERun, Deal, DealGateEvent
+from app.models.enums import DealGateState, DealStatus
 
 
 @dataclass(frozen=True)
@@ -18,6 +21,112 @@ def compute_gate_state(latest_run: BOERun | None) -> DealGateState:
     if latest_run is None:
         return DealGateState.NO_RUN
     return DealGateState.ADVANCE if latest_run.advance else DealGateState.KILL
+
+
+def map_decision_to_deal_status(decision: BOEDecision) -> DealStatus:
+    if decision.status == GateStatus.BLOCKED:
+        return DealStatus.BLOCKED
+    if decision.status == GateStatus.ADVANCE:
+        return DealStatus.ADVANCE
+    return DealStatus.NEEDS_WORK
+
+
+def _append_deal_gate_event(
+    db: Session,
+    *,
+    deal_id,
+    event_type: str,
+    from_status: DealStatus | None,
+    to_status: DealStatus,
+    source: str,
+    reason: str | None,
+    metadata_json: dict[str, Any] | None,
+) -> None:
+    db.add(
+        DealGateEvent(
+            deal_id=deal_id,
+            event_type=event_type,
+            from_status=from_status.value if from_status is not None else None,
+            to_status=to_status.value,
+            source=source,
+            reason=reason,
+            metadata_json=metadata_json,
+        )
+    )
+
+
+def apply_computed_gate_status(
+    db: Session,
+    deal: Deal,
+    computed_status: DealStatus,
+    *,
+    reason: str | None = None,
+    metadata_json: dict[str, Any] | None = None,
+) -> bool:
+    previous_effective = deal.gate_status
+    deal.gate_status_computed = computed_status
+    if deal.gate_override_status is None:
+        deal.gate_status = computed_status
+    deal.gate_updated_at = datetime.now(timezone.utc)
+
+    if previous_effective == deal.gate_status:
+        return False
+
+    _append_deal_gate_event(
+        db,
+        deal_id=deal.id,
+        event_type="COMPUTED_TRANSITION",
+        from_status=previous_effective,
+        to_status=deal.gate_status,
+        source="BOE_RUN",
+        reason=reason,
+        metadata_json=metadata_json,
+    )
+    return True
+
+
+def set_gate_override(
+    db: Session,
+    deal: Deal,
+    *,
+    override_status: DealStatus | None,
+    reason: str | None,
+    override_by: str | None,
+) -> bool:
+    previous_effective = deal.gate_status
+
+    if override_status is None:
+        deal.gate_override_status = None
+        deal.gate_override_reason = None
+        deal.gate_override_by = None
+        deal.gate_override_at = None
+        deal.gate_status = deal.gate_status_computed
+        event_type = "OVERRIDE_CLEARED"
+        source = "USER_OVERRIDE"
+    else:
+        deal.gate_override_status = override_status
+        deal.gate_override_reason = reason
+        deal.gate_override_by = override_by
+        deal.gate_override_at = datetime.now(timezone.utc)
+        deal.gate_status = override_status
+        event_type = "OVERRIDE_SET"
+        source = "USER_OVERRIDE"
+
+    deal.gate_updated_at = datetime.now(timezone.utc)
+    if previous_effective == deal.gate_status:
+        return False
+
+    _append_deal_gate_event(
+        db,
+        deal_id=deal.id,
+        event_type=event_type,
+        from_status=previous_effective,
+        to_status=deal.gate_status,
+        source=source,
+        reason=reason,
+        metadata_json=None,
+    )
+    return True
 
 
 def transition_deal_gate(db: Session, deal: Deal, latest_run: BOERun | None, user_id) -> GateTransition | None:

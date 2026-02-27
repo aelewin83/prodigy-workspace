@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.entities import Deal, User, WorkspaceMember
-from app.schemas.deal import DealCreate, DealOut, DealUpdate
+from app.models.enums import DealStatus
+from app.schemas.deal import DealCreate, DealGateOverrideRequest, DealOut, DealUpdate
+from app.services.gating import set_gate_override
 
 router = APIRouter(prefix="/deals", tags=["deals"])
 
@@ -71,6 +73,43 @@ def update_deal(
     updates = payload.model_dump(exclude_unset=True)
     for key, value in updates.items():
         setattr(deal, key, value)
+    db.commit()
+    db.refresh(deal)
+    return deal
+
+
+@router.post("/{deal_id}/gate/override", response_model=DealOut)
+def override_deal_gate_status(
+    deal_id: str,
+    payload: DealGateOverrideRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    deal = _get_deal_with_access(db, deal_id, user.id)
+    override_status = payload.override_status.strip().upper()
+
+    if override_status not in {"APPROVED", "BLOCKED", "CLEAR"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="override_status must be one of APPROVED, BLOCKED, CLEAR",
+        )
+    if override_status in {"APPROVED", "BLOCKED"} and not (payload.reason and payload.reason.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="reason is required when override_status is APPROVED or BLOCKED",
+        )
+
+    target_status = None
+    if override_status != "CLEAR":
+        target_status = DealStatus(override_status)
+
+    set_gate_override(
+        db,
+        deal,
+        override_status=target_status,
+        reason=payload.reason,
+        override_by=str(user.id),
+    )
     db.commit()
     db.refresh(deal)
     return deal

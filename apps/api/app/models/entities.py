@@ -82,8 +82,15 @@ class Deal(Base):
         UUID(as_uuid=True), ForeignKey("boe_runs.id"), nullable=True, index=True
     )
     gate_status: Mapped[DealStatus] = mapped_column(
-        Enum(DealStatus), nullable=False, default=DealStatus.REVIEW
+        Enum(DealStatus), nullable=False, default=DealStatus.NEEDS_WORK
     )
+    gate_status_computed: Mapped[DealStatus] = mapped_column(
+        Enum(DealStatus), nullable=False, default=DealStatus.NEEDS_WORK
+    )
+    gate_override_status: Mapped[DealStatus | None] = mapped_column(Enum(DealStatus), nullable=True)
+    gate_override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    gate_override_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gate_override_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     gate_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -144,6 +151,22 @@ class AuditLog(Base):
     new_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class DealGateEvent(Base):
+    __tablename__ = "deal_gate_events"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    deal_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("deals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    to_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
