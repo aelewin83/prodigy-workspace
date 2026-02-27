@@ -48,7 +48,12 @@ jobs:
       - name: Install frontend dependencies
         working-directory: apps/web
         run: npm ci
-
+        
+      - name: Install Playwright browsers
+        run: |
+          cd apps/web
+          npx playwright install --with-deps
+          
       - name: Run gate
         env:
           BOE_WORKBOOK_PATH: ${{ github.workspace }}/fixtures/boe/BOE_MF_Template_NYC.xlsx
