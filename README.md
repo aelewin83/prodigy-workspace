@@ -264,3 +264,4 @@ Root command sequence (local/CI):
 - GitHub Actions workflow: `.github/workflows/gate.yml`
 - Runs on pull requests and executes `make gate` in a full CI environment after Python/Node setup.
 - CI is strict about workbook fixture availability and fails if `fixtures/boe/BOE_MF_Template_NYC.xlsx` is missing.
+trigger
