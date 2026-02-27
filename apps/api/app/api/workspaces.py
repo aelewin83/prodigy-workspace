@@ -2,13 +2,16 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
-from app.models.entities import AuditLog, User, Workspace, WorkspaceMember
+from app.models.entities import AuditLog, BOERun, Deal, DealGateEvent, User, Workspace, WorkspaceMember
 from app.models.enums import MemberRole, WorkspaceEdition
+from app.schemas.boe import BOEDecisionSummaryOut
+from app.schemas.deal_workspace import DealWorkspaceSummaryOut
 from app.schemas.workspace import WorkspaceCreate, WorkspaceEditionUpdate, WorkspaceOut
+from app.services.gate_summary import build_gate_summary
 from app.services.workspace_capabilities import capabilities_for_edition
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -85,6 +88,79 @@ def get_workspace_capabilities(workspace_id: str, db: Session = Depends(get_db),
     if not member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Workspace access denied")
     return capabilities_for_edition(workspace.edition)
+
+
+@router.get("/{workspace_id}/deals/{deal_id}/summary", response_model=DealWorkspaceSummaryOut)
+def get_workspace_deal_summary(
+    workspace_id: str,
+    deal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    workspace = db.scalar(select(Workspace).where(Workspace.id == workspace_id))
+    if not workspace:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found")
+    member = _workspace_membership(db, workspace.id, user.id)
+    if not member:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Workspace access denied")
+    deal = db.scalar(select(Deal).where(Deal.id == deal_id, Deal.workspace_id == workspace.id))
+    if not deal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deal not found")
+
+    latest_run = db.scalar(
+        select(BOERun)
+        .options(selectinload(BOERun.tests))
+        .where(BOERun.deal_id == deal.id)
+        .order_by(BOERun.created_at.desc())
+    )
+    tests = latest_run.tests if latest_run else []
+    audit_trail_count = db.scalar(select(DealGateEvent).where(DealGateEvent.deal_id == deal.id).limit(1))
+    gate_summary = build_gate_summary(
+        deal=deal,
+        latest_run=latest_run,
+        tests=tests,
+        audit_trail_count=1 if audit_trail_count else 0,
+    )
+
+    decision_summary = None
+    if latest_run:
+        decision_summary = BOEDecisionSummaryOut(
+            status=gate_summary["computed_status"],
+            hard_veto_ok=gate_summary["computed_hard_veto_ok"],
+            pass_count=gate_summary["computed_pass_count"],
+            total_tests=len(gate_summary["explainability"]["tests"]),
+            advance=gate_summary["computed_advance"],
+            failed_hard_tests=gate_summary["computed_failed_hard_tests"],
+            failed_soft_tests=gate_summary["computed_failed_soft_tests"],
+            warn_tests=gate_summary["computed_warn_tests"],
+            pass_tests=gate_summary["computed_pass_tests"],
+            na_tests=gate_summary["computed_na_tests"],
+            ic_score=gate_summary["ic_score"],
+            ic_score_breakdown=gate_summary["ic_score_breakdown"],
+        )
+
+    outputs = latest_run.outputs if latest_run else {}
+    return {
+        "deal_id": deal.id,
+        "workspace_id": workspace.id,
+        "deal_name": deal.name,
+        "address": deal.address,
+        "gate_status": deal.gate_status_computed.value,
+        "gate_status_effective": deal.gate_status.value,
+        "ic_score": gate_summary["ic_score"] if latest_run else None,
+        "recommended_max_bid": outputs.get("boe_max_bid") if outputs else None,
+        "binding_constraint": latest_run.binding_constraint if latest_run else None,
+        "latest_run_id": latest_run.id if latest_run else None,
+        "latest_run_created_at": latest_run.created_at if latest_run else None,
+        "decision_summary": decision_summary,
+        "override": {
+            "status": deal.gate_override_status.value if deal.gate_override_status else None,
+            "reason": deal.gate_override_reason,
+            "by": deal.gate_override_by,
+            "at": deal.gate_override_at,
+        },
+        "capabilities": capabilities_for_edition(workspace.edition),
+    }
 
 
 @router.patch("/{workspace_id}/edition", response_model=WorkspaceOut)

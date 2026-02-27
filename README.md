@@ -264,4 +264,20 @@ Root command sequence (local/CI):
 - GitHub Actions workflow: `.github/workflows/gate.yml`
 - Runs on pull requests and executes `make gate` in a full CI environment after Python/Node setup.
 - CI is strict about workbook fixture availability and fails if `fixtures/boe/BOE_MF_Template_NYC.xlsx` is missing.
-trigger
+
+## Deal Workspace (Phase 4)
+
+Open the institutional deal workspace route:
+
+- `/workspaces/<workspace_id>/deals/<deal_id>`
+
+Quick local demo route:
+
+- `/workspaces/local-workspace/deals/queens-24`
+
+This page consumes:
+
+- `GET /v1/workspaces/{workspace_id}/deals/{deal_id}/summary`
+- `GET /v1/deals/{deal_id}/activity`
+- `POST /v1/deals/{deal_id}/gate/override`
+- `POST /v1/deals/{deal_id}/comments`
