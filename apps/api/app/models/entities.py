@@ -29,6 +29,7 @@ from app.models.enums import (
     TestResult,
     UnitType,
     VarianceBasis,
+    WorkspaceEdition,
 )
 
 
@@ -47,6 +48,13 @@ class Workspace(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    edition: Mapped[WorkspaceEdition] = mapped_column(
+        Enum(WorkspaceEdition), nullable=False, default=WorkspaceEdition.SYNDICATOR
+    )
+    edition_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    edition_updated_by_user_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
@@ -167,6 +175,21 @@ class DealGateEvent(Base):
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class DealOutcome(Base):
+    __tablename__ = "deal_outcomes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    deal_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("deals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    realized_irr: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realized_multiple: Mapped[float | None] = mapped_column(Float, nullable=True)
+    underperformed_flag: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
