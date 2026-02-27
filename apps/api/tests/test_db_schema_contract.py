@@ -54,3 +54,19 @@ def test_gate_overrides_and_events_migration_exists():
     assert "gate_status_computed" in migration
     assert "gate_override_status" in migration
     assert "deal_gate_events" in migration
+
+
+def test_deal_outcomes_migration_exists():
+    migration = (MIGRATIONS_DIR / "0007_deal_outcomes.py").read_text(encoding="utf-8")
+    assert "deal_outcomes" in migration
+    assert "realized_irr" in migration
+    assert "realized_multiple" in migration
+    assert "underperformed_flag" in migration
+
+
+def test_workspace_edition_migration_exists():
+    migration = (MIGRATIONS_DIR / "0008_workspace_edition.py").read_text(encoding="utf-8")
+    assert "workspaceedition" in migration
+    assert "edition" in migration
+    assert "edition_updated_at" in migration
+    assert "edition_updated_by_user_id" in migration

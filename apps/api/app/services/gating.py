@@ -124,7 +124,7 @@ def set_gate_override(
         to_status=deal.gate_status,
         source=source,
         reason=reason,
-        metadata_json=None,
+        metadata_json={"override_by": override_by} if override_by else None,
     )
     return True
 

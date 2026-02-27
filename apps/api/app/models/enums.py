@@ -6,6 +6,11 @@ class MemberRole(str, Enum):
     MEMBER = "MEMBER"
 
 
+class WorkspaceEdition(str, Enum):
+    SYNDICATOR = "SYNDICATOR"
+    FUND = "FUND"
+
+
 class TestResult(str, Enum):
     __test__ = False
     PASS = "PASS"

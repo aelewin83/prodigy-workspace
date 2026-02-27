@@ -1,12 +1,16 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
-from app.models.entities import Deal, User, WorkspaceMember
+from app.models.entities import BOERun, BOETestResult, Deal, DealGateEvent, DealOutcome, User, WorkspaceMember
 from app.models.enums import DealStatus
 from app.schemas.deal import DealCreate, DealGateOverrideRequest, DealOut, DealUpdate
+from app.schemas.gate import DealOutcomeCreate, DealOutcomeOut, GateSummaryOut, ICPacketOut
+from app.services.gate_summary import build_gate_summary
 from app.services.gating import set_gate_override
 
 router = APIRouter(prefix="/deals", tags=["deals"])
@@ -29,6 +33,15 @@ def _get_deal_with_access(db: Session, deal_id, user_id) -> Deal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deal not found")
     _assert_workspace_access(db, deal.workspace_id, user_id)
     return deal
+
+
+def _get_latest_run_with_tests(db: Session, deal_id):
+    return db.scalar(
+        select(BOERun)
+        .options(selectinload(BOERun.tests))
+        .where(BOERun.deal_id == deal_id)
+        .order_by(BOERun.created_at.desc())
+    )
 
 
 @router.post("", response_model=DealOut)
@@ -113,6 +126,117 @@ def override_deal_gate_status(
     db.commit()
     db.refresh(deal)
     return deal
+
+
+@router.get("/{deal_id}/gate_summary", response_model=GateSummaryOut)
+def get_deal_gate_summary(
+    deal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    deal = _get_deal_with_access(db, deal_id, user.id)
+    latest_run = _get_latest_run_with_tests(db, deal.id)
+    tests = latest_run.tests if latest_run else []
+    audit_trail_count = db.scalar(select(func.count()).select_from(DealGateEvent).where(DealGateEvent.deal_id == deal.id)) or 0
+    return build_gate_summary(
+        deal=deal,
+        latest_run=latest_run,
+        tests=tests,
+        audit_trail_count=int(audit_trail_count),
+    )
+
+
+@router.get("/{deal_id}/ic_packet", response_model=ICPacketOut)
+def get_deal_ic_packet(
+    deal_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    deal = _get_deal_with_access(db, deal_id, user.id)
+    latest_run = _get_latest_run_with_tests(db, deal.id)
+    tests = latest_run.tests if latest_run else []
+    audit_trail_count = db.scalar(select(func.count()).select_from(DealGateEvent).where(DealGateEvent.deal_id == deal.id)) or 0
+    gate_summary = build_gate_summary(
+        deal=deal,
+        latest_run=latest_run,
+        tests=tests,
+        audit_trail_count=int(audit_trail_count),
+    )
+    events = db.scalars(
+        select(DealGateEvent)
+        .where(DealGateEvent.deal_id == deal.id)
+        .order_by(DealGateEvent.created_at.desc())
+    ).all()
+    override_events = [
+        {
+            "event_type": e.event_type,
+            "from_status": e.from_status,
+            "to_status": e.to_status,
+            "source": e.source,
+            "reason": e.reason,
+            "created_at": e.created_at,
+            "user": (e.metadata_json or {}).get("override_by"),
+        }
+        for e in events
+        if e.event_type in {"OVERRIDE_SET", "OVERRIDE_CLEARED"}
+    ]
+    outputs = latest_run.outputs if latest_run else {}
+    return {
+        "packet_version": "1.0",
+        "generated_at": datetime.now(timezone.utc),
+        "deal_snapshot": {
+            "deal_id": deal.id,
+            "deal_name": deal.name,
+            "address": deal.address,
+            "asking_price": float(deal.asking_price) if deal.asking_price is not None else None,
+            "latest_run_id": latest_run.id if latest_run else None,
+        },
+        "gate_summary": gate_summary,
+        "recommended_max_bid": {
+            "boe_max_bid": outputs.get("boe_max_bid") if outputs else None,
+            "binding_constraint": latest_run.binding_constraint if latest_run else None,
+            "delta_vs_asking": outputs.get("delta_vs_asking") if outputs else None,
+        },
+        "audit_history": override_events,
+    }
+
+
+@router.post("/{deal_id}/outcomes", response_model=DealOutcomeOut)
+def create_or_update_deal_outcome(
+    deal_id: str,
+    payload: DealOutcomeCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    deal = _get_deal_with_access(db, deal_id, user.id)
+    recorded_at = payload.recorded_at or datetime.now(timezone.utc)
+    existing = db.scalar(
+        select(DealOutcome).where(
+            DealOutcome.deal_id == deal.id,
+            DealOutcome.recorded_at == recorded_at,
+        )
+    )
+    if existing:
+        existing.realized_irr = payload.realized_irr
+        existing.realized_multiple = payload.realized_multiple
+        existing.underperformed_flag = payload.underperformed_flag
+        existing.notes = payload.notes
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    outcome = DealOutcome(
+        deal_id=deal.id,
+        recorded_at=recorded_at,
+        realized_irr=payload.realized_irr,
+        realized_multiple=payload.realized_multiple,
+        underperformed_flag=payload.underperformed_flag,
+        notes=payload.notes,
+    )
+    db.add(outcome)
+    db.commit()
+    db.refresh(outcome)
+    return outcome
 
 
 @router.delete("/{deal_id}", status_code=status.HTTP_204_NO_CONTENT)
