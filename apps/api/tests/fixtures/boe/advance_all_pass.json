@@ -1,0 +1,55 @@
+{
+  "name": "advance_all_pass",
+  "inputs": {
+    "asking_price": 10000000,
+    "deposit_pct": 0.05,
+    "interest_rate": 0.06,
+    "ltc": 0.7,
+    "capex_budget": 1000000,
+    "soft_cost_pct": 0.0,
+    "reserves": 0.0,
+    "seller_noi_from_om": 600000,
+    "gross_income": 1000000,
+    "operating_expenses": 300000,
+    "y1_noi": 700000,
+    "y1_exit_cap_rate": 0.05
+  },
+  "expected": {
+    "outputs": {
+      "market_cap_rate": 0.07,
+      "seller_noi_from_om": 600000.0,
+      "asking_cap_rate": 0.06,
+      "analysis_cap_rate": 0.07,
+      "y1_exit_cap_rate": 0.05,
+      "y1_dscr": 1.5151515151515154,
+      "y1_capex_value_multiple": 4.0,
+      "y1_expense_ratio": 0.3,
+      "y1_cash_on_cash": 0.07212121212121211,
+      "y1_yield_on_cost_unlevered": 0.06363636363636363,
+      "residual_sale_at_exit_cap": 14000000.0,
+      "profit_potential": 2387387.3873873856,
+      "max_price_at_yoc": 11666666.666666666,
+      "max_price_at_capex_multiple": 12000000.0,
+      "max_price_at_coc_threshold": 11612612.612612614,
+      "boe_max_bid": 11612612.612612614,
+      "delta_vs_asking": 1612612.6126126144,
+      "deposit_amount": 500000.0,
+      "binding_constraint": "CoC"
+    },
+    "tests": {
+      "yield_on_cost": "PASS",
+      "capex_value_multiple": "PASS",
+      "positive_leverage": "PASS",
+      "cash_on_cash": "PASS",
+      "dscr": "PASS",
+      "expense_ratio": "PASS",
+      "market_cap_rate": "PASS"
+    },
+    "decision": {
+      "hard_veto_ok": true,
+      "pass_count": 7,
+      "advance": true
+    },
+    "binding_constraint": "CoC"
+  }
+}

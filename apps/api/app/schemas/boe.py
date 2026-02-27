@@ -1,0 +1,42 @@
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
+
+from app.models.enums import TestClass, TestResult
+
+
+class BOERunCreate(BaseModel):
+    inputs: dict
+
+
+class BOETestResultOut(BaseModel):
+    test_key: str
+    test_name: str
+    test_class: TestClass
+    threshold: float | None = None
+    actual: float | None = None
+    threshold_display: str | None = None
+    actual_display: str | None = None
+    result: TestResult
+    note: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BOERunOut(BaseModel):
+    id: UUID
+    deal_id: UUID
+    version: int
+    inputs: dict
+    outputs: dict
+    decision: str
+    binding_constraint: str | None
+    hard_veto_ok: bool
+    pass_count: int
+    advance: bool
+    created_by: UUID
+    created_at: datetime
+    tests: list[BOETestResultOut]
+
+    model_config = {"from_attributes": True}

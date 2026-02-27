@@ -1,0 +1,9 @@
+PLACEHOLDER ONLY
+
+The real workbook file is intentionally not committed.
+
+Expected file name:
+  BOE_MF_Template_NYC.xlsx
+
+Place the workbook in this directory, or set BOE_WORKBOOK_PATH to your local workbook path.
+See README.md in this same directory.

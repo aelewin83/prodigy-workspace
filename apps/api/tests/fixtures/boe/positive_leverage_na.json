@@ -1,0 +1,55 @@
+{
+  "name": "positive_leverage_na",
+  "inputs": {
+    "asking_price": 10000000,
+    "deposit_pct": 0.05,
+    "interest_rate": 0.0,
+    "ltc": 0.7,
+    "capex_budget": 1000000,
+    "soft_cost_pct": 0.0,
+    "reserves": 0.0,
+    "seller_noi_from_om": 600000,
+    "gross_income": 1000000,
+    "operating_expenses": 250000,
+    "y1_noi": 650000,
+    "y1_exit_cap_rate": 0.05
+  },
+  "expected": {
+    "outputs": {
+      "market_cap_rate": 0.065,
+      "seller_noi_from_om": 600000.0,
+      "asking_cap_rate": 0.06,
+      "analysis_cap_rate": 0.065,
+      "y1_exit_cap_rate": 0.05,
+      "y1_dscr": null,
+      "y1_capex_value_multiple": 3.0,
+      "y1_expense_ratio": 0.25,
+      "y1_cash_on_cash": 0.1969696969696969,
+      "y1_yield_on_cost_unlevered": 0.05909090909090909,
+      "residual_sale_at_exit_cap": 13000000.0,
+      "profit_potential": 2166666.666666668,
+      "max_price_at_yoc": 10833333.333333332,
+      "max_price_at_capex_multiple": 11000000.0,
+      "max_price_at_coc_threshold": 47148148.14814814,
+      "boe_max_bid": 10833333.333333332,
+      "delta_vs_asking": 833333.3333333321,
+      "deposit_amount": 500000.0,
+      "binding_constraint": "YOC"
+    },
+    "tests": {
+      "yield_on_cost": "FAIL",
+      "capex_value_multiple": "PASS",
+      "positive_leverage": "N/A",
+      "cash_on_cash": "PASS",
+      "dscr": "N/A",
+      "expense_ratio": "FAIL",
+      "market_cap_rate": "PASS"
+    },
+    "decision": {
+      "hard_veto_ok": false,
+      "pass_count": 3,
+      "advance": false
+    },
+    "binding_constraint": "YOC"
+  }
+}

@@ -1,0 +1,55 @@
+name: Gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    env:
+      BOE_WORKBOOK_PATH: fixtures/boe/BOE_MF_Template_NYC.xlsx
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate workbook fixture exists
+        run: |
+          if [ ! -f "$BOE_WORKBOOK_PATH" ]; then
+            echo "Missing required workbook fixture at $BOE_WORKBOOK_PATH"
+            echo "Add fixtures/boe/BOE_MF_Template_NYC.xlsx or provision it in workflow before gate runs."
+            exit 1
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Ensure package-lock exists
+        working-directory: apps/web
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only
+          fi
+
+      - name: Install frontend dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Run gate
+        env:
+          BOE_WORKBOOK_PATH: ${{ github.workspace }}/fixtures/boe/BOE_MF_Template_NYC.xlsx
+        run: make gate

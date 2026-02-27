@@ -1,0 +1,23 @@
+{
+  "inputs": {
+    "asking_price": "C10",
+    "deposit_pct": "C11",
+    "interest_rate": "C24",
+    "ltc": "C22",
+    "capex_budget": "C30",
+    "seller_noi_from_om": "C40",
+    "gross_income": "C41",
+    "operating_expenses": "C42",
+    "y1_noi": "C43",
+    "y1_exit_cap_rate": "H49"
+  },
+  "outputs": {
+    "market_cap_rate": "H48",
+    "asking_cap_rate": "H45",
+    "y1_dscr": "H50",
+    "y1_capex_value_multiple": "H51",
+    "y1_expense_ratio": "H52",
+    "y1_cash_on_cash": "H53",
+    "y1_yield_on_cost_unlevered": "H54"
+  }
+}

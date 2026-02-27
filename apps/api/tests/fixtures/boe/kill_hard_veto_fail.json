@@ -1,0 +1,55 @@
+{
+  "name": "kill_hard_veto_fail",
+  "inputs": {
+    "asking_price": 10000000,
+    "deposit_pct": 0.05,
+    "interest_rate": 0.06,
+    "ltc": 0.7,
+    "capex_budget": 1000000,
+    "soft_cost_pct": 0.0,
+    "reserves": 0.0,
+    "seller_noi_from_om": 500000,
+    "gross_income": 1000000,
+    "operating_expenses": 350000,
+    "y1_noi": 500000,
+    "y1_exit_cap_rate": 0.05
+  },
+  "expected": {
+    "outputs": {
+      "market_cap_rate": 0.05,
+      "seller_noi_from_om": 500000.0,
+      "asking_cap_rate": 0.05,
+      "analysis_cap_rate": 0.05,
+      "y1_exit_cap_rate": 0.05,
+      "y1_dscr": 1.0822510822510825,
+      "y1_capex_value_multiple": 0.0,
+      "y1_expense_ratio": 0.35,
+      "y1_cash_on_cash": 0.01151515151515153,
+      "y1_yield_on_cost_unlevered": 0.045454545454545456,
+      "residual_sale_at_exit_cap": 10000000.0,
+      "profit_potential": 2000000.0,
+      "max_price_at_yoc": 8333333.333333333,
+      "max_price_at_capex_multiple": 8000000.0,
+      "max_price_at_coc_threshold": 8009009.009009009,
+      "boe_max_bid": 8000000.0,
+      "delta_vs_asking": -2000000.0,
+      "deposit_amount": 500000.0,
+      "binding_constraint": "CapEx Multiple"
+    },
+    "tests": {
+      "yield_on_cost": "FAIL",
+      "capex_value_multiple": "FAIL",
+      "positive_leverage": "FAIL",
+      "cash_on_cash": "FAIL",
+      "dscr": "FAIL",
+      "expense_ratio": "PASS",
+      "market_cap_rate": "PASS"
+    },
+    "decision": {
+      "hard_veto_ok": false,
+      "pass_count": 2,
+      "advance": false
+    },
+    "binding_constraint": "CapEx Multiple"
+  }
+}
