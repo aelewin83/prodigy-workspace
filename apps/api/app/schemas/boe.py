@@ -11,6 +11,7 @@ class BOERunCreate(BaseModel):
 
 
 class BOEDecisionSummaryOut(BaseModel):
+    status: str
     hard_veto_ok: bool
     pass_count: int
     total_tests: int

@@ -21,6 +21,7 @@ from app.db.base import Base
 from app.models.enums import (
     CompRunStatus,
     CompSourceType,
+    DealStatus,
     DealGateState,
     ListingSourceType,
     MemberRole,
@@ -80,6 +81,10 @@ class Deal(Base):
     latest_boe_run_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("boe_runs.id"), nullable=True, index=True
     )
+    gate_status: Mapped[DealStatus] = mapped_column(
+        Enum(DealStatus), nullable=False, default=DealStatus.REVIEW
+    )
+    gate_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 

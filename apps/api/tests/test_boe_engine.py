@@ -1,6 +1,6 @@
 import pytest
 
-from app.boe.engine import BOEInput, TestResult as BOETestResult, calculate_boe
+from app.boe.engine import BOEInput, GateStatus as BOEGateStatus, TestResult as BOETestResult, calculate_boe
 
 
 @pytest.fixture
@@ -115,6 +115,7 @@ def test_gate_pass_count_warn_counts_more_than_fail(boe_base_inputs):
     assert _get_test_result(tests_warn, "dscr") == BOETestResult.WARN
     assert _get_test_result(tests_fail, "dscr") == BOETestResult.FAIL
     assert decision_warn.pass_count > decision_fail.pass_count
+    assert decision_fail.status == BOEGateStatus.BLOCKED
 
 
 def test_gate_decision_has_stable_advance_and_kill_cases():
@@ -152,8 +153,10 @@ def test_gate_decision_has_stable_advance_and_kill_cases():
 
     assert advance_decision.total_tests == 7
     assert advance_decision.advance is True
+    assert advance_decision.status == BOEGateStatus.ADVANCE
     assert kill_decision.total_tests == 7
     assert kill_decision.advance is False
+    assert kill_decision.status == BOEGateStatus.BLOCKED
     assert "yield_on_cost" in kill_decision.failed_hard_tests
     assert set(advance_output.max_bid_by_constraint.__dict__.keys()) == {
         "max_price_at_yoc",
@@ -163,3 +166,30 @@ def test_gate_decision_has_stable_advance_and_kill_cases():
     assert advance_output.max_bid_by_constraint.max_price_at_yoc == advance_output.max_price_at_yoc
     assert advance_output.max_bid_by_constraint.max_price_at_capex_multiple == advance_output.max_price_at_capex_multiple
     assert advance_output.max_bid_by_constraint.max_price_at_coc_threshold == advance_output.max_price_at_coc_threshold
+
+
+def test_gate_status_needs_work_when_not_blocked_and_not_advance(monkeypatch):
+    from app.boe import engine as boe_engine
+
+    monkeypatch.setattr(boe_engine, "QUORUM_REQUIRED", 8)
+    needs_work_case = BOEInput(
+        asking_price=10_000_000,
+        deposit_pct=0.05,
+        interest_rate=0.06,
+        ltc=0.7,
+        capex_budget=1_000_000,
+        soft_cost_pct=0.0,
+        reserves=0.0,
+        seller_noi_from_om=600_000,
+        gross_income=1_000_000,
+        operating_expenses=300_000,
+        y1_noi=700_000,
+        y1_exit_cap_rate=0.05,
+    )
+
+    _, tests, decision = calculate_boe(needs_work_case)
+    assert decision.hard_veto_ok is True
+    assert decision.advance is False
+    assert decision.status == BOEGateStatus.NEEDS_WORK
+    assert decision.pass_count < 8
+    assert _get_test_result(tests, "dscr") == BOETestResult.PASS

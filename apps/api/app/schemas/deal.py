@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models.enums import DealGateState
+from app.models.enums import DealGateState, DealStatus
 
 
 class DealCreate(BaseModel):
@@ -28,6 +28,8 @@ class DealOut(BaseModel):
     asking_price: Decimal | None
     current_gate_state: DealGateState
     latest_boe_run_id: UUID | None
+    gate_status: DealStatus
+    gate_updated_at: datetime | None
     created_by: UUID
     created_at: datetime
 

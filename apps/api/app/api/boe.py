@@ -1,17 +1,32 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 from uuid import UUID
 
 from app.api.deps import get_current_user, get_deal_with_access
-from app.boe.engine import BOEInput, calculate_boe, serialize_output
+from app.boe.engine import BOEInput, GateStatus, calculate_boe, serialize_output
 from app.db.session import get_db
-from app.models.entities import BOERun, BOETestResult, User
-from app.models.enums import TestClass, TestResult
+from app.models.entities import BOERun, BOETestResult, Deal, User
+from app.models.enums import DealStatus, TestClass, TestResult
 from app.schemas.boe import BOEDecisionSummaryOut, BOERunCreate, BOERunOut
 from app.services.gating import log_boe_run_created, transition_deal_gate
 
 router = APIRouter(prefix="/deals/{deal_id}/boe/runs", tags=["boe"])
+
+
+def _compute_deal_gate_status(hard_veto_ok: bool, advance: bool) -> DealStatus:
+    if not hard_veto_ok:
+        return DealStatus.KILL
+    if advance:
+        return DealStatus.ADVANCE
+    return DealStatus.REVIEW
+
+
+def _persist_deal_gate_status(deal: Deal, hard_veto_ok: bool, advance: bool) -> None:
+    deal.gate_status = _compute_deal_gate_status(hard_veto_ok=hard_veto_ok, advance=advance)
+    deal.gate_updated_at = datetime.now(timezone.utc)
 
 
 def _decision_summary_from_tests(run: BOERun) -> BOEDecisionSummaryOut:
@@ -20,7 +35,14 @@ def _decision_summary_from_tests(run: BOERun) -> BOEDecisionSummaryOut:
     warn_tests = [t.test_key for t in run.tests if t.result == TestResult.WARN]
     pass_tests = [t.test_key for t in run.tests if t.result == TestResult.PASS]
     na_tests = [t.test_key for t in run.tests if t.result == TestResult.NA]
+    if not run.hard_veto_ok:
+        status = GateStatus.BLOCKED.value
+    elif run.advance:
+        status = GateStatus.ADVANCE.value
+    else:
+        status = GateStatus.NEEDS_WORK.value
     return BOEDecisionSummaryOut(
+        status=status,
         hard_veto_ok=run.hard_veto_ok,
         pass_count=run.pass_count,
         total_tests=len(run.tests),
@@ -100,6 +122,7 @@ def create_boe_run(
 
     log_boe_run_created(db, run, user.id)
     transition_deal_gate(db, deal, run, user.id)
+    _persist_deal_gate_status(deal, hard_veto_ok=decision.hard_veto_ok, advance=decision.advance)
     db.commit()
     reloaded = db.scalar(select(BOERun).options(selectinload(BOERun.tests)).where(BOERun.id == run.id))
     return _serialize_boe_run(reloaded)
