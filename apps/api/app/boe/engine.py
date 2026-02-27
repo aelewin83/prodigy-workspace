@@ -51,6 +51,10 @@ class BOEDecision:
     hard_veto_ok: bool
     pass_count: int
     total_tests: int
+    quorum_met: bool
+    failed_hard_tests: list[str]
+    failed_soft_tests: list[str]
+    warn_tests: list[str]
     advance: bool
 
 
@@ -79,6 +83,8 @@ class BOEOutput:
 
 TARGET_COC = 0.045
 TARGET_CAPEX_MULTIPLE = 2.0
+QUORUM_REQUIRED = 4
+PASSING_RESULTS = {TestResult.PASS, TestResult.WARN}
 
 
 def _f(v: Any) -> float | None:
@@ -109,7 +115,7 @@ def _fmt_mult(v: float | None) -> str:
 
 
 def _counts_as_pass(result: TestResult) -> bool:
-    return result in (TestResult.PASS, TestResult.WARN)
+    return result in PASSING_RESULTS
 
 
 def _evaluate_tests(metrics: BOEOutput, interest_rate: float | None) -> tuple[list[BOETestOutcome], BOEDecision]:
@@ -248,8 +254,34 @@ def _evaluate_tests(metrics: BOEOutput, interest_rate: float | None) -> tuple[li
 
     hard_veto_ok = all(t.result == TestResult.PASS for t in tests if t.test_class == TestClass.HARD)
     pass_count = sum(1 for t in tests if _counts_as_pass(t.result))
-    advance = hard_veto_ok and pass_count >= 4
-    return tests, BOEDecision(hard_veto_ok=hard_veto_ok, pass_count=pass_count, total_tests=7, advance=advance)
+    total_tests = len(tests)
+    eligible_tests = sum(1 for t in tests if t.result != TestResult.NA)
+    failed_hard_tests = [
+        t.key for t in tests
+        if t.test_class == TestClass.HARD and t.result == TestResult.FAIL
+    ]
+    failed_soft_tests = [
+        t.key for t in tests
+        if t.test_class == TestClass.SOFT and t.result == TestResult.FAIL
+    ]
+    warn_tests = [
+        t.key for t in tests
+        if t.result == TestResult.WARN
+    ]
+    quorum_met = pass_count >= QUORUM_REQUIRED
+
+    advance = hard_veto_ok and quorum_met
+
+    return tests, BOEDecision(
+        hard_veto_ok=hard_veto_ok,
+        pass_count=pass_count,
+        total_tests=len(tests),
+        quorum_met=quorum_met,
+        failed_hard_tests=failed_hard_tests,
+        failed_soft_tests=failed_soft_tests,
+        warn_tests=warn_tests,
+        advance=advance,
+    )
 
 
 def calculate_boe(inputs: BOEInput) -> tuple[BOEOutput, list[BOETestOutcome], BOEDecision]:

@@ -63,7 +63,10 @@ def test_dscr_warn_counts_toward_gate_pass_count(boe_base_inputs):
     output_warn, tests_warn, decision_warn = calculate_boe(BOEInput(y1_noi=warn_noi, **base))
     _, tests_fail, decision_fail = calculate_boe(BOEInput(y1_noi=fail_noi, **base))
 
-    assert _get_test_result(tests_warn, "dscr") == BOETestResult.WARN
+    dscr = next(t for t in tests_warn if t.key == "dscr")
+    from app.boe.engine import TestResult
+
+    assert dscr.result == TestResult.WARN
     assert _get_test_result(tests_fail, "dscr") == BOETestResult.FAIL
 
     # Core requirement: WARN counts toward the pass tally more than FAIL does.
@@ -141,7 +144,7 @@ def test_gate_decision_has_stable_advance_and_kill_cases():
         seller_noi_from_om=500_000,
         gross_income=1_000_000,
         operating_expenses=350_000,
-        y1_noi=500_000,
+        y1_noi=416_000,
         y1_exit_cap_rate=0.05,
     )
 
